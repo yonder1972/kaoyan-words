@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>考研英语 · 百日单词计划</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#18181b;--paper:#fafaf9;--surface:#f5f4f0;--card:#ffffff;
+  --gold:#b5830a;--gold-bg:#fef9ee;--gold-bd:#f0d070;
+  --green:#166534;--green-bg:#f0fdf4;--green-bd:#86efac;
+  --red:#991b1b;--red-bg:#fff1f2;--red-bd:#fca5a5;
+  --blue:#1e40af;--blue-bg:#eff6ff;--blue-bd:#93c5fd;
+  --muted:#71717a;--border:#e4e4e7;--border2:#d4d4d8;
+  --serif:'Noto Serif SC',serif;--mono:'JetBrains Mono',monospace;--sans:'Noto Sans SC',sans-serif;
+}
+body{font-family:var(--sans);background:var(--paper);color:var(--ink);min-height:100vh;font-size:14px}
+h1,h2,h3{font-family:var(--serif)}
+
+/* ─ Loading ─ */
+#loading{position:fixed;inset:0;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;z-index:999}
+.spinner{width:30px;height:30px;border:2px solid var(--border2);border-top-color:var(--ink);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading p{font-size:.8rem;color:var(--muted)}
+
+/* ─ Firebase config notice ─ */
+#config-screen{display:none;min-height:100vh;align-items:center;justify-content:center;padding:2rem}
+.config-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:2.5rem 2rem;max-width:560px;width:100%}
+.config-box h2{font-size:1.25rem;margin-bottom:.5rem}
+.config-box p{font-size:.82rem;color:var(--muted);margin-bottom:1.25rem;line-height:1.7}
+.config-box pre{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1rem;font-size:.72rem;font-family:var(--mono);overflow-x:auto;margin-bottom:1.25rem;line-height:1.8}
+.config-box label{display:block;font-size:.78rem;font-weight:500;margin-bottom:4px;margin-top:.75rem}
+.config-box input{width:100%;padding:.6rem .85rem;border:1px solid var(--border2);border-radius:6px;font-family:var(--mono);font-size:.78rem;background:var(--paper);color:var(--ink);outline:none;margin-bottom:0}
+.config-box input:focus{border-color:var(--ink)}
+.btn-save{margin-top:1.25rem;width:100%;padding:.7rem;background:var(--ink);color:#fff;border:none;border-radius:6px;font-size:.88rem;cursor:pointer;font-family:var(--sans)}
+.step{display:flex;gap:.75rem;margin-bottom:.85rem;font-size:.8rem;line-height:1.6}
+.step-num{background:var(--ink);color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:600;flex-shrink:0;margin-top:2px}
+
+/* ─ Auth ─ */
+#auth-screen{display:none;min-height:100vh;align-items:center;justify-content:center;padding:2rem;background:var(--surface)}
+.auth-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:2.5rem 2rem;width:100%;max-width:400px}
+.auth-logo{text-align:center;margin-bottom:2rem}
+.auth-logo h1{font-size:1.5rem;font-weight:700;letter-spacing:.04em}
+.auth-logo p{font-size:.65rem;color:var(--muted);margin-top:4px;font-family:var(--mono);letter-spacing:.12em}
+.form-row{margin-bottom:1rem}
+.form-row label{display:block;font-size:.78rem;font-weight:500;margin-bottom:5px}
+.form-row input{width:100%;padding:.6rem .85rem;border:1px solid var(--border2);border-radius:6px;font-family:var(--sans);font-size:.85rem;background:var(--paper);color:var(--ink);outline:none;transition:border-color .15s}
+.form-row input:focus{border-color:var(--ink)}
+.btn-main{width:100%;padding:.7rem;background:var(--ink);color:#fff;border:none;border-radius:6px;font-family:var(--sans);font-size:.88rem;font-weight:500;cursor:pointer;transition:opacity .15s}
+.btn-main:hover{opacity:.85}
+.btn-main:disabled{opacity:.5;cursor:not-allowed}
+.auth-switch{text-align:center;margin-top:1.25rem;font-size:.78rem;color:var(--muted)}
+.auth-switch span{color:var(--ink);cursor:pointer;font-weight:500;text-decoration:underline}
+.msg-err{background:var(--red-bg);border:1px solid var(--red-bd);color:var(--red);padding:.6rem .85rem;border-radius:6px;font-size:.78rem;margin-bottom:1rem}
+.msg-ok{background:var(--green-bg);border:1px solid var(--green-bd);color:var(--green);padding:.6rem .85rem;border-radius:6px;font-size:.78rem;margin-bottom:1rem}
+.divider{display:flex;align-items:center;gap:.75rem;margin:1rem 0;color:var(--muted);font-size:.72rem}
+.divider::before,.divider::after{content:'';flex:1;border-top:1px solid var(--border)}
+.btn-google{width:100%;padding:.65rem;background:#fff;border:1px solid var(--border2);border-radius:6px;font-family:var(--sans);font-size:.82rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.6rem;transition:background .12s}
+.btn-google:hover{background:var(--surface)}
+.google-icon{width:18px;height:18px}
+
+/* ─ App ─ */
+#app-screen{display:none}
+.app{max-width:880px;margin:0 auto;padding:0 1rem 4rem}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 0 1rem;border-bottom:2px solid var(--ink);margin-bottom:1.5rem;flex-wrap:wrap;gap:.75rem}
+.topbar-left h1{font-size:1.3rem;font-weight:700;letter-spacing:.03em}
+.topbar-left p{font-size:.62rem;color:var(--muted);font-family:var(--mono);letter-spacing:.1em;margin-top:2px}
+.topbar-right{display:flex;align-items:center;gap:.6rem}
+.user-chip{display:flex;align-items:center;gap:6px;font-size:.78rem;background:var(--surface);padding:.3rem .7rem;border-radius:999px;border:1px solid var(--border)}
+.avatar{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:600;color:#fff;flex-shrink:0}
+.btn-sm{padding:.3rem .75rem;border:1px solid var(--border2);border-radius:6px;background:var(--card);font-family:var(--sans);font-size:.72rem;cursor:pointer;color:var(--ink)}
+.btn-sm:hover{background:var(--surface)}
+
+/* ─ Banner ─ */
+.banner{background:var(--ink);color:#fff;border-radius:8px;padding:1.25rem 1.5rem;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
+.banner h2{font-family:var(--serif);font-size:1.05rem;font-weight:600}
+.banner p{font-size:.72rem;color:#a1a1aa;margin-top:2px}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{padding:4px 12px;border-radius:999px;font-size:.7rem;font-weight:500;font-family:var(--mono);white-space:nowrap}
+.p-new{background:#ca8a04;color:#fff}
+.p-rev{background:#1d4ed8;color:#fff}
+.p-done{background:#15803d;color:#fff}
+.p-warn{background:#b45309;color:#fff}
+
+/* ─ Alert ─ */
+.alert-bar{background:var(--gold-bg);border:1px solid var(--gold-bd);border-left:3px solid var(--gold);border-radius:6px;padding:.7rem 1rem;margin-bottom:1.25rem;font-size:.78rem;display:none;align-items:center;gap:.75rem;flex-wrap:wrap}
+.alert-bar.show{display:flex}
+
+/* ─ Tabs ─ */
+.tabs{display:flex;border-bottom:1.5px solid var(--border);margin-bottom:1.5rem;overflow-x:auto}
+.tab{padding:.55rem 1rem;font-size:.76rem;font-weight:500;cursor:pointer;border:none;border-bottom:2.5px solid transparent;margin-bottom:-1.5px;background:none;font-family:var(--sans);color:var(--muted);white-space:nowrap;transition:all .12s}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--ink);border-bottom-color:var(--ink)}
+.panel{display:none}.panel.on{display:block}
+
+/* ─ Progress ─ */
+.prog-wrap{margin-bottom:1.25rem}
+.prog-label{display:flex;justify-content:space-between;font-size:.68rem;color:var(--muted);margin-bottom:4px}
+.prog-track{background:var(--surface);border-radius:2px;height:6px;overflow:hidden}
+.prog-fill{height:100%;background:var(--ink);border-radius:2px;transition:width .4s ease}
+.prog-fill.g{background:#16a34a}
+
+/* ─ Flashcard ─ */
+.fc-area{display:flex;flex-direction:column;align-items:center}
+.fc-meta{width:100%;max-width:500px;display:flex;justify-content:space-between;font-family:var(--mono);font-size:.63rem;color:var(--muted);margin-bottom:8px}
+.fc{width:100%;max-width:500px;height:210px;perspective:1100px;cursor:pointer;margin-bottom:1rem}
+.fc-inner{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.4,0,.2,1)}
+.fc-inner.flip{transform:rotateY(180deg)}
+.fc-face{position:absolute;width:100%;height:100%;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:8px;border:1px solid var(--border2);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.75rem;box-shadow:2px 2px 0 var(--border)}
+.fc-back{transform:rotateY(180deg)}
+.fc-tag{position:absolute;top:12px;right:14px;font-size:.6rem;font-family:var(--mono);color:var(--muted)}
+.fc-lbl{font-size:.62rem;color:var(--muted);letter-spacing:.1em;margin-bottom:5px}
+.fc-word{font-family:var(--mono);font-size:1.9rem;font-weight:600;color:var(--ink)}
+.fc-phon{font-size:.78rem;color:var(--muted);margin-top:6px}
+.fc-hint{font-size:.66rem;color:var(--muted);margin-top:12px}
+.fc-mean{font-family:var(--serif);font-size:1.2rem;font-weight:600;text-align:center;line-height:1.6;color:var(--ink)}
+.fc-en2{font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-top:6px}
+.rate-row{display:flex;gap:7px;width:100%;max-width:500px;margin-bottom:1rem}
+.btn-r{flex:1;padding:.6rem .4rem;border-radius:6px;border:1px solid;font-size:.7rem;font-weight:500;cursor:pointer;font-family:var(--sans);line-height:1.4;transition:transform .1s,box-shadow .1s}
+.btn-r:active{transform:scale(.97)}
+.b-hard{border-color:#fca5a5;color:#991b1b;background:#fff1f2}
+.b-ok{border-color:#fcd34d;color:#92400e;background:#fffbeb}
+.b-good{border-color:#86efac;color:#166534;background:#f0fdf4}
+.b-easy{border-color:#93c5fd;color:#1e40af;background:#eff6ff}
+.b-sub{font-size:.58rem;display:block;opacity:.7;margin-top:1px}
+.empty-card{text-align:center;padding:2.5rem 1rem;border:1px dashed var(--border2);border-radius:8px;width:100%;max-width:500px}
+.empty-card .ic{font-size:2rem;margin-bottom:.75rem}
+.empty-card h3{font-family:var(--serif);font-size:1rem;margin-bottom:.4rem}
+.empty-card p{font-size:.75rem;color:var(--muted);margin-bottom:1rem}
+.btn-checkin{padding:.6rem 1.5rem;background:var(--ink);color:#fff;border:none;border-radius:6px;font-family:var(--sans);font-size:.82rem;cursor:pointer}
+.btn-checkin:disabled{opacity:.5;cursor:not-allowed}
+
+/* ─ Calendar ─ */
+.cal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.85rem}
+.cal-hdr h3{font-family:var(--serif);font-size:1rem}
+.cal-nav button{background:none;border:1px solid var(--border);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:.75rem;font-family:var(--sans)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:1.25rem}
+.cal-lbl{text-align:center;font-size:.58rem;color:var(--muted);padding:3px 0;font-family:var(--mono)}
+.cal-d{aspect-ratio:1;border-radius:5px;border:1px solid transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.65rem;position:relative}
+.cal-d.today{border-color:var(--ink)!important;font-weight:700}
+.cal-d.full{background:#15803d;color:#fff;border-color:#15803d}
+.cal-d.partial{background:#ca8a04;color:#fff;border-color:#ca8a04}
+.cal-d.chk{background:var(--ink);color:#fff;border-color:var(--ink)}
+.cal-d.future{opacity:.3}
+.cal-d.no-task{opacity:.35}
+.cal-d.other-month{opacity:.18}
+.cal-dnum{font-family:var(--mono);font-size:.68rem}
+.cal-dot{width:4px;height:4px;border-radius:50%;background:currentColor;margin-top:1px;opacity:.5}
+
+/* ─ Stats ─ */
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1.25rem}
+.sc{background:var(--surface);border-radius:6px;padding:.75rem .85rem}
+.sc.hi{background:var(--ink);color:#fff}
+.sc .lbl{font-size:.6rem;color:var(--muted);letter-spacing:.06em}
+.sc.hi .lbl{color:#a1a1aa}
+.sc .val{font-family:var(--mono);font-size:1.45rem;font-weight:600;margin-top:2px}
+
+/* ─ Leaderboard ─ */
+.lb-row{display:flex;align-items:center;gap:10px;padding:.6rem .75rem;border-radius:6px;border:1px solid var(--border);margin-bottom:6px;background:var(--card)}
+.lb-row.me{border-color:var(--ink);background:var(--surface)}
+.lb-rank{font-family:var(--mono);font-size:.8rem;font-weight:600;min-width:22px;color:var(--muted);text-align:center}
+.lb-info{flex:1;min-width:0}
+.lb-name{font-weight:500;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb-sub{font-size:.65rem;color:var(--muted);margin-top:1px}
+.lb-stats{text-align:right;font-family:var(--mono);font-size:.72rem;flex-shrink:0}
+
+/* ─ Schedule ─ */
+.sch-t{width:100%;border-collapse:collapse;font-size:.74rem}
+.sch-t th{text-align:left;padding:5px 8px;border-bottom:2px solid var(--ink);font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.sch-t td{padding:5px 8px;border-bottom:1px solid var(--border)}
+.sch-t tr:hover td{background:var(--surface)}
+.sch-t tr.trow td{background:#fffbeb;font-weight:500}
+.badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.6rem;font-family:var(--mono)}
+.bn{background:#fef9c3;color:#713f12}.br{background:#dbeafe;color:#1e3a8a}.bd{background:#dcfce7;color:#14532d}
+
+/* ─ Words ─ */
+.wl{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:6px}
+.wi{background:var(--card);border:1px solid var(--border);border-radius:5px;padding:.5rem .7rem}
+.wi .en2{font-family:var(--mono);font-size:.76rem;font-weight:600}
+.wi .zh2{font-size:.7rem;color:var(--muted);margin-top:2px}
+.wi.mas{border-color:#86efac;background:#f0fdf4}
+.wi.lrn{border-color:#fcd34d;background:#fffbeb}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:1rem}
+.leg-i{display:flex;align-items:center;gap:4px;font-size:.66rem;color:var(--muted)}
+.leg-d{width:10px;height:10px;border-radius:3px}
+
+@media(max-width:580px){
+  .sg{grid-template-columns:repeat(2,1fr)}
+  .banner{flex-direction:column;align-items:flex-start}
+  .rate-row{flex-wrap:wrap}
+  .btn-r{flex:1 1 40%}
+}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading">
+  <div class="spinner"></div>
+  <p>正在加载...</p>
+</div>
+
+
+
+<!-- Auth Screen -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <h1>考研英语 · 百日计划</h1>
+      <p>EBBINGHAUS SPACED REPETITION · 230 WORDS</p>
+    </div>
+    <div id="auth-msg"></div>
+    <div id="auth-extra-fields"></div>
+    <div class="form-row"><label>邮箱</label><input id="f-email" type="email" placeholder="your@email.com" autocomplete="email"></div>
+    <div class="form-row"><label>密码</label><input id="f-pass" type="password" placeholder="至少6位" autocomplete="current-password"></div>
+    <button class="btn-main" id="auth-btn" onclick="submitAuth()">登 录</button>
+    <div class="divider">或</div>
+    <button class="btn-google" onclick="googleLogin()">
+      <svg class="google-icon" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      使用 Google 账号登录
+    </button>
+    <p class="auth-switch" id="auth-switch-text">还没有账号？ <span onclick="toggleAuth()">立即注册</span></p>
+  </div>
+</div>
+
+<!-- App Screen -->
+<div id="app-screen">
+  <div class="app">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>考研英语 · 百日计划</h1>
+        <p id="topbar-sub">EBBINGHAUS SPACED REPETITION · 230 WORDS · 100 DAYS</p>
+      </div>
+      <div class="topbar-right">
+        <div class="user-chip">
+          <div class="avatar" id="user-avatar"></div>
+          <span id="user-name"></span>
+        </div>
+        <button class="btn-sm" onclick="logout()">退出</button>
+      </div>
+    </div>
+    <div class="banner">
+      <div>
+        <h2 id="banner-title">第 — 天 / 100天</h2>
+        <p id="banner-date"></p>
+      </div>
+      <div class="pills" id="banner-pills"></div>
+    </div>
+    <div class="alert-bar" id="alert-bar"></div>
+    <div class="tabs">
+      <button class="tab on" onclick="switchTab('study')">📖 今日学习</button>
+      <button class="tab" onclick="switchTab('calendar')">📅 打卡日历</button>
+      <button class="tab" onclick="switchTab('rank')">🏆 排行榜</button>
+      <button class="tab" onclick="switchTab('schedule')">📋 计划表</button>
+      <button class="tab" onclick="switchTab('words')">📚 词库</button>
+    </div>
+    <div id="panel-study" class="panel on"></div>
+    <div id="panel-calendar" class="panel"></div>
+    <div id="panel-rank" class="panel"></div>
+    <div id="panel-schedule" class="panel"></div>
+    <div id="panel-words" class="panel"></div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════
+   WORD DATA
+══════════════════════════════════════════════ */
+const WORDS=[
+  {w:"abdicate",p:"[ˈæbdɪkeɪt]",m:"v. 退位、放弃"},{w:"abide",p:"[əˈbaɪd]",m:"v. 遵守、忍受"},
+  {w:"abolish",p:"[əˈbɒlɪʃ]",m:"v. 废除、取消"},{w:"abound",p:"[əˈbaʊnd]",m:"v. 充满；到处都是"},
+  {w:"absolute",p:"[ˈæbsəluːt]",m:"adj. 绝对的、专制的"},{w:"absorb",p:"[əbˈsɔːb]",m:"v. 吸收、承受"},
+  {w:"abstract",p:"[æbˈstrækt]",m:"adj. 抽象的"},{w:"abuse",p:"[əˈbjuːz]",m:"v/n. 虐待、滥用"},
+  {w:"academic",p:"[ˌækəˈdemɪk]",m:"adj. 学术的"},{w:"accelerate",p:"[əkˈseləreɪt]",m:"v. 加速、促进"},
+  {w:"access",p:"[ˈækses]",m:"v/n. 进入、使用"},{w:"acclaim",p:"[əˈkleɪm]",m:"v/n. 称赞、喝彩"},
+  {w:"accommodate",p:"[əˈkɒmədeɪt]",m:"v. 容纳、（使）适应"},{w:"account",p:"[əˈkaʊnt]",m:"v. 占比、解释 n. 账户"},
+  {w:"accuracy",p:"[ˈækjərəsi]",m:"n. 精确性、准确性"},{w:"acknowledge",p:"[əkˈnɒlɪdʒ]",m:"v. 承认、认可"},
+  {w:"acquire",p:"[əˈkwaɪə]",m:"v. 获得、习得"},{w:"activate",p:"[ˈæktɪveɪt]",m:"v. 刺激、激发"},
+  {w:"acute",p:"[əˈkjuːt]",m:"adj. 严重的、急性的"},{w:"adaptable",p:"[əˈdæptəbl]",m:"adj. 适合的、能适应的"},
+  {w:"adequate",p:"[ˈædɪkwɪt]",m:"adj. 充足的、充分的"},{w:"adhere",p:"[ədˈhɪə]",m:"v. 坚持、遵守"},
+  {w:"adjust",p:"[əˈdʒʌst]",m:"v. 调整、适应"},{w:"administration",p:"[ədˌmɪnɪsˈtreɪʃn]",m:"n. 管理、政府"},
+  {w:"admire",p:"[ədˈmaɪə]",m:"v. 钦佩、欣赏"},{w:"adopt",p:"[əˈdɒpt]",m:"v. 收养、采纳"},
+  {w:"advocate",p:"[ˈædvəkeɪt]",m:"v. 提倡、拥护 n. 支持者"},{w:"affect",p:"[əˈfɛkt]",m:"v. 影响、感动"},
+  {w:"affirm",p:"[əˈfɜːm]",m:"v. 肯定、证实"},{w:"agency",p:"[ˈeɪdʒənsi]",m:"n. 代理、机构"},
+  {w:"aggravate",p:"[ˈæɡrəveɪt]",m:"v. 加重、恶化"},{w:"aggressive",p:"[əˈɡresɪv]",m:"adj. 激进的、有进取心的"},
+  {w:"agony",p:"[ˈæɡəni]",m:"n. 痛苦"},{w:"allay",p:"[əˈleɪ]",m:"v. 减轻、使缓和"},
+  {w:"alleviate",p:"[əˈliːvieɪt]",m:"v. 减轻、（使）缓和"},{w:"alliance",p:"[əˈlaɪəns]",m:"n. 联合、联盟"},
+  {w:"allocation",p:"[ˌæləʊˈkeɪʃn]",m:"n. 分配、配置"},{w:"alter",p:"[ˈɔːltə]",m:"v. 改变、更改"},
+  {w:"ambiguous",p:"[æmˈbɪɡjuəs]",m:"adj. 模糊不清的、模棱两可的"},{w:"ambition",p:"[æmˈbɪʃn]",m:"n. 雄心、志向"},
+  {w:"amplify",p:"[ˈæmplɪfaɪ]",m:"v. 扩大、加强"},{w:"analogy",p:"[əˈnælədʒi]",m:"n. 类比"},
+  {w:"ancestor",p:"[ˈænsɪstə]",m:"n. 先驱者、祖先"},{w:"announce",p:"[əˈnaʊns]",m:"v. 宣布、声明"},
+  {w:"anonymous",p:"[əˈnɒnɪməs]",m:"adj. 匿名的"},{w:"anticipate",p:"[ænˈtɪsɪpeɪt]",m:"v. 预期、期待"},
+  {w:"anxiety",p:"[æŋˈzaɪəti]",m:"n. 焦虑、不安"},{w:"apparent",p:"[əˈpærənt]",m:"adj. 明显的、表面上的"},
+  {w:"appeal",p:"[əˈpiːl]",m:"v/n. 呼吁、吸引力"},{w:"appreciate",p:"[əˈpriːʃieɪt]",m:"v. 欣赏、感激"},
+  {w:"appropriate",p:"[əˈprəʊpriət]",m:"adj. 合适的、恰当的"},{w:"arbitrary",p:"[ˈɑːbɪtrəri]",m:"adj. 任意的、武断的"},
+  {w:"arouse",p:"[əˈraʊz]",m:"v. 激起、唤醒"},{w:"assert",p:"[əˈsɜːt]",m:"v. 断言、主张"},
+  {w:"assess",p:"[əˈses]",m:"v. 评估、评价"},{w:"asset",p:"[ˈæset]",m:"n. 资产、优点"},
+  {w:"assign",p:"[əˈsaɪn]",m:"v. 分配、指派"},{w:"assimilate",p:"[əˈsɪmɪleɪt]",m:"v. 吸收、同化"},
+  {w:"assume",p:"[əˈsjuːm]",m:"v. 假设、承担"},{w:"attain",p:"[əˈteɪn]",m:"v. 达到、获得"},
+  {w:"attribute",p:"[əˈtrɪbjuːt]",m:"v. 归因于 n. 属性"},{w:"authentic",p:"[ɔːˈθentɪk]",m:"adj. 真实的、可信的"},
+  {w:"autonomous",p:"[ɔːˈtɒnəməs]",m:"adj. 自治的、独立的"},{w:"barrier",p:"[ˈbæriə]",m:"n. 障碍、壁垒"},
+  {w:"bias",p:"[ˈbaɪəs]",m:"n. 偏见、偏差"},{w:"capable",p:"[ˈkeɪpəbl]",m:"adj. 有能力的"},
+  {w:"catastrophe",p:"[kəˈtæstrəfi]",m:"n. 灾难、大祸"},{w:"caution",p:"[ˈkɔːʃn]",m:"n. 谨慎、警告"},
+  {w:"chronic",p:"[ˈkrɒnɪk]",m:"adj. 慢性的、长期的"},{w:"cognitive",p:"[ˈkɒɡnɪtɪv]",m:"adj. 认知的"},
+  {w:"coherent",p:"[kəʊˈhɪərənt]",m:"adj. 连贯的、一致的"},{w:"collapse",p:"[kəˈlæps]",m:"v/n. 崩溃、倒塌"},
+  {w:"compensate",p:"[ˈkɒmpənseɪt]",m:"v. 补偿、赔偿"},{w:"competent",p:"[ˈkɒmpɪtənt]",m:"adj. 称职的"},
+  {w:"complement",p:"[ˈkɒmplɪmənt]",m:"v. 补充 n. 补足物"},{w:"comply",p:"[kəmˈplaɪ]",m:"v. 遵从、服从"},
+  {w:"comprehensive",p:"[ˌkɒmprɪˈhensɪv]",m:"adj. 综合的、全面的"},{w:"concentrate",p:"[ˈkɒnsəntreɪt]",m:"v. 集中、专注"},
+  {w:"conform",p:"[kənˈfɔːm]",m:"v. 遵守、符合"},{w:"confront",p:"[kənˈfrʌnt]",m:"v. 面对、对抗"},
+  {w:"consensus",p:"[kənˈsensəs]",m:"n. 共识、一致意见"},{w:"conserve",p:"[kənˈsɜːv]",m:"v. 保护、节约"},
+  {w:"contradict",p:"[ˌkɒntrəˈdɪkt]",m:"v. 矛盾、反驳"},{w:"controversy",p:"[ˈkɒntrəvɜːsi]",m:"n. 争议、争论"},
+  {w:"convey",p:"[kənˈveɪ]",m:"v. 传达、运输"},{w:"correlate",p:"[ˈkɒrəleɪt]",m:"v. 使相互关联"},
+  {w:"critical",p:"[ˈkrɪtɪkl]",m:"adj. 批判的、关键的"},{w:"cultivate",p:"[ˈkʌltɪveɪt]",m:"v. 培养、耕种"},
+  {w:"decline",p:"[dɪˈklaɪn]",m:"v/n. 下降、拒绝"},{w:"dedicate",p:"[ˈdedɪkeɪt]",m:"v. 致力于、献身"},
+  {w:"deliberate",p:"[dɪˈlɪbərɪt]",m:"adj. 故意的 v. 深思熟虑"},{w:"demonstrate",p:"[ˈdemənstreɪt]",m:"v. 证明、示范"},
+  {w:"depict",p:"[dɪˈpɪkt]",m:"v. 描绘、描述"},{w:"deploy",p:"[dɪˈplɔɪ]",m:"v. 部署、调度"},
+  {w:"derive",p:"[dɪˈraɪv]",m:"v. 获得、起源于"},{w:"detect",p:"[dɪˈtekt]",m:"v. 察觉、探测"},
+  {w:"deteriorate",p:"[dɪˈtɪəriəreɪt]",m:"v. 恶化、变坏"},{w:"dilemma",p:"[dɪˈlemə]",m:"n. 困境、两难局面"},
+  {w:"diminish",p:"[dɪˈmɪnɪʃ]",m:"v. 减少、减弱"},{w:"discipline",p:"[ˈdɪsɪplɪn]",m:"n. 纪律、学科"},
+  {w:"disrupt",p:"[dɪsˈrʌpt]",m:"v. 破坏、扰乱"},{w:"diverse",p:"[daɪˈvɜːs]",m:"adj. 多种多样的"},
+  {w:"domain",p:"[dəˈmeɪn]",m:"n. 领域、范围"},{w:"dominate",p:"[ˈdɒmɪneɪt]",m:"v. 支配、占主导"},
+  {w:"elaborate",p:"[ɪˈlæbərɪt]",m:"adj. 精细的 v. 详述"},{w:"eliminate",p:"[ɪˈlɪmɪneɪt]",m:"v. 消除、淘汰"},
+  {w:"emerge",p:"[ɪˈmɜːdʒ]",m:"v. 出现、涌现"},{w:"empirical",p:"[ɪmˈpɪrɪkl]",m:"adj. 实证的"},
+  {w:"enable",p:"[ɪˈneɪbl]",m:"v. 使能够、授权"},{w:"endure",p:"[ɪnˈdjʊə]",m:"v. 忍耐、持续"},
+  {w:"enhance",p:"[ɪnˈhɑːns]",m:"v. 提高、增强"},{w:"enormous",p:"[ɪˈnɔːməs]",m:"adj. 巨大的、极大的"},
+  {w:"equivalent",p:"[ɪˈkwɪvələnt]",m:"adj. 等同的 n. 等价物"},{w:"establish",p:"[ɪˈstæblɪʃ]",m:"v. 建立、确立"},
+  {w:"ethical",p:"[ˈeθɪkl]",m:"adj. 道德的、伦理的"},{w:"evident",p:"[ˈevɪdənt]",m:"adj. 明显的、明白的"},
+  {w:"evolve",p:"[ɪˈvɒlv]",m:"v. 演化、逐步发展"},{w:"exceed",p:"[ɪkˈsiːd]",m:"v. 超过、超越"},
+  {w:"explicit",p:"[ɪkˈsplɪsɪt]",m:"adj. 明确的、清楚的"},{w:"exploit",p:"[ɪkˈsplɔɪt]",m:"v. 开发利用、剥削"},
+  {w:"facilitate",p:"[fəˈsɪlɪteɪt]",m:"v. 促进、使便利"},{w:"fluctuate",p:"[ˈflʌktʃueɪt]",m:"v. 波动、起伏"},
+  {w:"foster",p:"[ˈfɒstə]",m:"v. 培养、促进"},{w:"framework",p:"[ˈfreɪmwɜːk]",m:"n. 框架、体系"},
+  {w:"generate",p:"[ˈdʒenəreɪt]",m:"v. 产生、引起"},{w:"genuine",p:"[ˈdʒenjuɪn]",m:"adj. 真诚的、真实的"},
+  {w:"global",p:"[ˈɡləʊbl]",m:"adj. 全球的、全面的"},{w:"guarantee",p:"[ˌɡærənˈtiː]",m:"v/n. 保证、担保"},
+  {w:"hierarchy",p:"[ˈhaɪərɑːki]",m:"n. 等级制度、层次"},{w:"highlight",p:"[ˈhaɪlaɪt]",m:"v. 强调 n. 亮点"},
+  {w:"hypothesis",p:"[haɪˈpɒθɪsɪs]",m:"n. 假设、假说"},{w:"identify",p:"[aɪˈdentɪfaɪ]",m:"v. 认出、鉴定"},
+  {w:"illustrate",p:"[ˈɪləstreɪt]",m:"v. 说明、举例"},{w:"implement",p:"[ˈɪmplɪment]",m:"v. 实施 n. 工具"},
+  {w:"imply",p:"[ɪmˈplaɪ]",m:"v. 暗示、意味着"},{w:"impose",p:"[ɪmˈpəʊz]",m:"v. 强加、征收"},
+  {w:"incentive",p:"[ɪnˈsentɪv]",m:"n. 激励、动机"},{w:"incorporate",p:"[ɪnˈkɔːpəreɪt]",m:"v. 包含、合并"},
+  {w:"indicate",p:"[ˈɪndɪkeɪt]",m:"v. 表明、指出"},{w:"inevitable",p:"[ɪnˈevɪtəbl]",m:"adj. 不可避免的"},
+  {w:"infer",p:"[ɪnˈfɜː]",m:"v. 推断、推理"},{w:"initiate",p:"[ɪˈnɪʃieɪt]",m:"v. 开始、发起"},
+  {w:"innovate",p:"[ˈɪnəveɪt]",m:"v. 创新"},{w:"integrate",p:"[ˈɪntɪɡreɪt]",m:"v. 整合、结合"},
+  {w:"interpret",p:"[ɪnˈtɜːprɪt]",m:"v. 解释、诠释"},{w:"investigate",p:"[ɪnˈvestɪɡeɪt]",m:"v. 调查、研究"},
+  {w:"justify",p:"[ˈdʒʌstɪfaɪ]",m:"v. 证明正当、辩护"},{w:"maintain",p:"[meɪnˈteɪn]",m:"v. 维持、坚持"},
+  {w:"manipulate",p:"[məˈnɪpjuleɪt]",m:"v. 操纵、控制"},{w:"mechanism",p:"[ˈmekənɪzm]",m:"n. 机制、机理"},
+  {w:"migrate",p:"[maɪˈɡreɪt]",m:"v. 迁移、移居"},{w:"minimize",p:"[ˈmɪnɪmaɪz]",m:"v. 使最小化"},
+  {w:"moderate",p:"[ˈmɒdərɪt]",m:"adj. 适度的 v. 缓和"},{w:"monitor",p:"[ˈmɒnɪtə]",m:"v. 监控 n. 显示器"},
+  {w:"motivate",p:"[ˈməʊtɪveɪt]",m:"v. 激励、促进"},{w:"neglect",p:"[nɪˈɡlekt]",m:"v/n. 忽视、忽略"},
+  {w:"negotiate",p:"[nɪˈɡəʊʃieɪt]",m:"v. 协商、谈判"},{w:"neutral",p:"[ˈnjuːtrəl]",m:"adj. 中立的"},
+  {w:"objective",p:"[əbˈdʒektɪv]",m:"adj. 客观的 n. 目标"},{w:"obstacle",p:"[ˈɒbstəkl]",m:"n. 障碍、阻碍"},
+  {w:"obtain",p:"[əbˈteɪn]",m:"v. 获得、得到"},{w:"omit",p:"[əˈmɪt]",m:"v. 省略、遗漏"},
+  {w:"oppose",p:"[əˈpəʊz]",m:"v. 反对、对抗"},{w:"optimistic",p:"[ˌɒptɪˈmɪstɪk]",m:"adj. 乐观的"},
+  {w:"originate",p:"[əˈrɪdʒɪneɪt]",m:"v. 起源、产生"},{w:"overcome",p:"[ˌəʊvəˈkʌm]",m:"v. 克服、战胜"},
+  {w:"perceive",p:"[pəˈsiːv]",m:"v. 感知、察觉"},{w:"persist",p:"[pəˈsɪst]",m:"v. 坚持、持续"},
+  {w:"phenomenon",p:"[fɪˈnɒmɪnən]",m:"n. 现象"},{w:"potential",p:"[pəˈtenʃl]",m:"adj. 潜在的 n. 潜力"},
+  {w:"predict",p:"[prɪˈdɪkt]",m:"v. 预测、预言"},{w:"prevalent",p:"[ˈprevələnt]",m:"adj. 普遍的、流行的"},
+  {w:"profound",p:"[prəˈfaʊnd]",m:"adj. 深刻的、深远的"},{w:"prohibit",p:"[prəˈhɪbɪt]",m:"v. 禁止、阻止"},
+  {w:"promote",p:"[prəˈməʊt]",m:"v. 促进、提升"},{w:"propose",p:"[prəˈpəʊz]",m:"v. 提议、建议"},
+  {w:"pursue",p:"[pəˈsjuː]",m:"v. 追求、从事"},{w:"rational",p:"[ˈræʃnl]",m:"adj. 理性的、合理的"},
+  {w:"reinforce",p:"[ˌriːɪnˈfɔːs]",m:"v. 加强、强化"},{w:"reject",p:"[rɪˈdʒekt]",m:"v. 拒绝、排斥"},
+  {w:"relevant",p:"[ˈreləvənt]",m:"adj. 相关的、有意义的"},{w:"remarkable",p:"[rɪˈmɑːkəbl]",m:"adj. 显著的、非凡的"},
+  {w:"resolve",p:"[rɪˈzɒlv]",m:"v. 解决、决心"},{w:"restore",p:"[rɪˈstɔː]",m:"v. 恢复、修复"},
+  {w:"reveal",p:"[rɪˈviːl]",m:"v. 揭示、显示"},{w:"rigid",p:"[ˈrɪdʒɪd]",m:"adj. 严格的、僵硬的"},
+  {w:"robust",p:"[rəʊˈbʌst]",m:"adj. 强健的、稳健的"},{w:"scarce",p:"[skeəs]",m:"adj. 稀缺的、不足的"},
+  {w:"scheme",p:"[skiːm]",m:"n. 计划、方案 v. 策划"},{w:"significant",p:"[sɪɡˈnɪfɪkənt]",m:"adj. 重要的、显著的"},
+  {w:"stable",p:"[ˈsteɪbl]",m:"adj. 稳定的、牢固的"},{w:"stimulate",p:"[ˈstɪmjuleɪt]",m:"v. 刺激、激励"},
+  {w:"strategy",p:"[ˈstrætɪdʒi]",m:"n. 战略、策略"},{w:"substantial",p:"[səbˈstænʃl]",m:"adj. 大量的、实质的"},
+  {w:"sustain",p:"[səˈsteɪn]",m:"v. 维持、支撑"},{w:"synthesize",p:"[ˈsɪnθɪsaɪz]",m:"v. 合成、综合"},
+  {w:"tendency",p:"[ˈtendənsi]",m:"n. 趋势、倾向"},{w:"terminate",p:"[ˈtɜːmɪneɪt]",m:"v. 终止、结束"},
+  {w:"tolerate",p:"[ˈtɒləreɪt]",m:"v. 容忍、忍受"},{w:"transform",p:"[trænsˈfɔːm]",m:"v. 转变、改变"},
+  {w:"trend",p:"[trend]",m:"n. 趋势、潮流"},{w:"uniform",p:"[ˈjuːnɪfɔːm]",m:"adj. 统一的 n. 制服"},
+  {w:"unique",p:"[juːˈniːk]",m:"adj. 独特的、唯一的"},{w:"universal",p:"[ˌjuːnɪˈvɜːsl]",m:"adj. 普遍的、通用的"},
+  {w:"validate",p:"[ˈvælɪdeɪt]",m:"v. 验证、确认"},{w:"vanish",p:"[ˈvænɪʃ]",m:"v. 消失"},
+  {w:"various",p:"[ˈveəriəs]",m:"adj. 各种各样的"},{w:"verify",p:"[ˈverɪfaɪ]",m:"v. 证实、核实"},
+  {w:"vital",p:"[ˈvaɪtl]",m:"adj. 至关重要的"},{w:"vulnerable",p:"[ˈvʌlnərəbl]",m:"adj. 脆弱的、易受伤的"},
+  {w:"widespread",p:"[ˈwaɪdspred]",m:"adj. 广泛的、普遍的"},{w:"allocate",p:"[ˈæləkeɪt]",m:"v. 分配、拨给"},
+  {w:"amend",p:"[əˈmend]",m:"v. 修改、改善"},{w:"aspect",p:"[ˈæspekt]",m:"n. 方面、方向"},
+  {w:"betray",p:"[bɪˈtreɪ]",m:"v. 背叛、泄露"},{w:"boost",p:"[buːst]",m:"v. 促进、提高 n. 推进"},
+  {w:"clarify",p:"[ˈklærɪfaɪ]",m:"v. 阐明、澄清"},{w:"cluster",p:"[ˈklʌstə]",m:"n. 群、簇 v. 聚集"},
+  {w:"commodity",p:"[kəˈmɒdɪti]",m:"n. 商品、货物"},{w:"compassion",p:"[kəmˈpæʃn]",m:"n. 同情、怜悯"},
+  {w:"deplete",p:"[dɪˈpliːt]",m:"v. 耗尽、使减少"},{w:"embed",p:"[ɪmˈbed]",m:"v. 嵌入、植入"},
+  {w:"embrace",p:"[ɪmˈbreɪs]",m:"v. 拥抱、欣然接受"},{w:"emit",p:"[ɪˈmɪt]",m:"v. 发出、排放"},
+  {w:"enforce",p:"[ɪnˈfɔːs]",m:"v. 执行、强制实施"},{w:"exhibit",p:"[ɪɡˈzɪbɪt]",m:"v. 展示 n. 展品"},
+  {w:"expose",p:"[ɪkˈspəʊz]",m:"v. 暴露、揭露"},{w:"federal",p:"[ˈfedərl]",m:"adj. 联邦的"},
+  {w:"flexible",p:"[ˈfleksɪbl]",m:"adj. 灵活的、柔韧的"},{w:"formulate",p:"[ˈfɔːmjuleɪt]",m:"v. 制定、阐述"},
+  {w:"habitat",p:"[ˈhæbɪtæt]",m:"n. 栖息地、居住地"},{w:"impact",p:"[ˈɪmpækt]",m:"n/v. 影响、冲击"},
+  {w:"implicit",p:"[ɪmˈplɪsɪt]",m:"adj. 隐含的、绝对的"},{w:"induce",p:"[ɪnˈdjuːs]",m:"v. 诱导、引起"},
+  {w:"inhibit",p:"[ɪnˈhɪbɪt]",m:"v. 抑制、妨碍"},{w:"insight",p:"[ˈɪnsaɪt]",m:"n. 洞察力、见解"},
+  {w:"instinct",p:"[ˈɪnstɪŋkt]",m:"n. 本能、直觉"},{w:"institution",p:"[ˌɪnstɪˈtjuːʃn]",m:"n. 机构、制度"},
+  {w:"interact",p:"[ˌɪntərˈækt]",m:"v. 相互作用、互动"},{w:"notion",p:"[ˈnəʊʃn]",m:"n. 概念、想法"},
+  {w:"priority",p:"[praɪˈɒrɪti]",m:"n. 优先权、重点"},{w:"prone",p:"[prəʊn]",m:"adj. 易于……的"},
+  {w:"regulate",p:"[ˈreɡjuleɪt]",m:"v. 调节、管制"},{w:"reluctant",p:"[rɪˈlʌktənt]",m:"adj. 不情愿的"},
+  {w:"rely",p:"[rɪˈlaɪ]",m:"v. 依赖、信任"},{w:"render",p:"[ˈrendə]",m:"v. 使成为、提供"},
+  {w:"resource",p:"[rɪˈsɔːs]",m:"n. 资源、财力"},{w:"restrain",p:"[rɪˈstreɪn]",m:"v. 抑制、约束"},
+  {w:"retain",p:"[rɪˈteɪn]",m:"v. 保留、保持"},{w:"seek",p:"[siːk]",m:"v. 寻求、试图"},
+  {w:"shift",p:"[ʃɪft]",m:"v. 转移、改变 n. 变化"},{w:"specific",p:"[spəˈsɪfɪk]",m:"adj. 特定的、具体的"},
+  {w:"specify",p:"[ˈspesɪfaɪ]",m:"v. 指定、具体说明"},{w:"submit",p:"[səbˈmɪt]",m:"v. 提交、服从"},
+  {w:"suppress",p:"[səˈpres]",m:"v. 压制、抑制"},{w:"temporary",p:"[ˈtempərəri]",m:"adj. 临时的、暂时的"},
+  {w:"trace",p:"[treɪs]",m:"v. 追溯、描绘 n. 痕迹"},{w:"undermine",p:"[ˌʌndəˈmaɪn]",m:"v. 破坏、削弱"},
+  {w:"urgent",p:"[ˈɜːdʒnt]",m:"adj. 紧迫的、急需的"},
+];
+
+/* ══════════════════════════════════════════════
+   CONSTANTS
+══════════════════════════════════════════════ */
+const TOTAL=WORDS.length;
+const NEW_PER_DAY=5;
+const NEW_DAYS=Math.ceil(TOTAL/NEW_PER_DAY);
+const INTERVALS=[1,3,7,15,30];
+const CFG_KEY='kaoyan_fb_config';
+
+/* ══════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════ */
+function todayStr(){const d=new Date();return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`}
+function p2(n){return String(n).padStart(2,'0')}
+function addDays(s,n){const d=new Date(s);d.setDate(d.getDate()+n);return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`}
+function daysBetween(a,b){return Math.round((new Date(b)-new Date(a))/86400000)}
+function shuffle(a){const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]]}return r}
+function hashColor(s){const cols=['#18181b','#1e40af','#166534','#92400e','#991b1b','#5b21b6','#0e7490','#065f46'];return cols[s.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%cols.length]}
+function initials(s){return (s||'?').slice(0,2).toUpperCase()}
+function show(id){document.getElementById(id).style.display='flex'}
+function hide(id){document.getElementById(id).style.display='none'}
+
+/* ══════════════════════════════════════════════
+   FIREBASE INIT
+══════════════════════════════════════════════ */
+let db=null, auth=null;
+
+function loadConfig(){
+  try{return JSON.parse(localStorage.getItem(CFG_KEY))}catch{return null}
+}
+function saveConfig(){
+  const cfg={
+    apiKey:document.getElementById('cfg-apiKey').value.trim(),
+    authDomain:document.getElementById('cfg-authDomain').value.trim(),
+    projectId:document.getElementById('cfg-projectId').value.trim(),
+    storageBucket:document.getElementById('cfg-storageBucket').value.trim(),
+    messagingSenderId:document.getElementById('cfg-messagingSenderId').value.trim(),
+    appId:document.getElementById('cfg-appId').value.trim(),
+  };
+  if(!cfg.apiKey||!cfg.projectId){alert('请至少填写 API Key 和 Project ID');return}
+  localStorage.setItem(CFG_KEY,JSON.stringify(cfg));
+  location.reload();
+}
+
+function initFirebase(cfg){
+  firebase.initializeApp(cfg);
+  db=firebase.firestore();
+  auth=firebase.auth();
+}
+
+/* ══════════════════════════════════════════════
+   APP STATE
+══════════════════════════════════════════════ */
+let currentUser=null;
+let userDoc=null; // {startDate, nickname}
+let userState=null; // {wordStates, checkins, sessionProgress}
+let studyQueue=[];
+let currentCard=null;
+let isFlipped=false;
+let activeTab='study';
+let calYear=new Date().getFullYear();
+let calMonth=new Date().getMonth();
+let wordFilter='all';
+let authMode='login';
+
+/* ══════════════════════════════════════════════
+   FIRESTORE HELPERS
+══════════════════════════════════════════════ */
+async function loadUserDoc(uid){
+  const snap=await db.collection('users').doc(uid).get();
+  if(snap.exists)return snap.data();
+  const doc={startDate:todayStr(),nickname:'',createdAt:Date.now()};
+  await db.collection('users').doc(uid).set(doc);
+  return doc;
+}
+async function loadUserState(uid){
+  const snap=await db.collection('states').doc(uid).get();
+  if(snap.exists)return snap.data();
+  return{wordStates:{},checkins:{},sessionProgress:{}};
+}
+async function saveState(){
+  await db.collection('states').doc(currentUser.uid).set(userState);
+}
+
+/* ══════════════════════════════════════════════
+   GAME LOGIC
+══════════════════════════════════════════════ */
+function currentDay(){return daysBetween(userDoc.startDate,todayStr())+1}
+function getNewWords(day){if(day<1||day>NEW_DAYS)return[];const s=(day-1)*NEW_PER_DAY;return WORDS.slice(s,s+NEW_PER_DAY).map((w,i)=>({...w,idx:s+i}))}
+function getReviewWords(dateStr){
+  const rv=[];
+  for(let wi=0;wi<WORDS.length;wi++){
+    const ws=userState.wordStates[wi];
+    if(!ws||!ws.learned)continue;
+    for(let ri=0;ri<INTERVALS.length;ri++){
+      if(addDays(ws.learned,INTERVALS[ri])===dateStr){
+        rv.push({...WORDS[wi],idx:wi,reviewInterval:ri,doneKey:`${dateStr}_r${wi}_${ri}`});break;
+      }
+    }
+  }
+  return rv;
+}
+function getTodayTasks(){
+  const day=currentDay();
+  const today=todayStr();
+  const nw=getNewWords(day);
+  const rv=getReviewWords(today);
+  const sp=userState.sessionProgress[today]||{newDone:[],reviewDone:[]};
+  return{
+    newWords:nw,reviewWords:rv,
+    pendingNew:nw.filter(w=>!sp.newDone.includes(w.idx)),
+    pendingReview:rv.filter(w=>!sp.reviewDone.includes(w.doneKey)),
+    sp,day
+  };
+}
+function calcStreak(){
+  let s=0,d=new Date(todayStr());
+  while(true){
+    const k=`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+    if(userState.checkins[k]&&userState.checkins[k].checked){s++;d.setDate(d.getDate()-1)}else break;
+  }
+  return s;
+}
+
+/* ══════════════════════════════════════════════
+   AUTH
+══════════════════════════════════════════════ */
+function renderAuth(){
+  hide('loading');
+  document.getElementById('auth-screen').style.display='flex';
+  const isLogin=authMode==='login';
+  document.getElementById('auth-extra-fields').innerHTML=isLogin?'':
+    `<div class="form-row"><label>昵称（可选）</label><input id="f-nick" type="text" placeholder="排行榜显示名" maxlength="12"></div>`;
+  document.getElementById('auth-btn').textContent=isLogin?'登 录':'注 册';
+  document.getElementById('auth-switch-text').innerHTML=isLogin
+    ?'还没有账号？ <span onclick="toggleAuth()">立即注册</span>'
+    :'已有账号？ <span onclick="toggleAuth()">返回登录</span>';
+  document.getElementById('f-email').focus();
+}
+function toggleAuth(){authMode=authMode==='login'?'register':'login';document.getElementById('auth-msg').innerHTML='';renderAuth()}
+
+async function submitAuth(){
+  const btn=document.getElementById('auth-btn');
+  const email=document.getElementById('f-email').value.trim();
+  const pass=document.getElementById('f-pass').value;
+  const nick=authMode==='register'?(document.getElementById('f-nick')||{value:''}).value.trim():'';
+  if(!email||!pass){showAuthMsg('请填写邮箱和密码','err');return}
+  btn.disabled=true;btn.textContent='请稍候...';
+  try{
+    let cred;
+    if(authMode==='login'){
+      cred=await auth.signInWithEmailAndPassword(email,pass);
+    }else{
+      cred=await auth.createUserWithEmailAndPassword(email,pass);
+      if(nick) await cred.user.updateProfile({displayName:nick});
+    }
+    await onLogin(cred.user);
+  }catch(e){
+    btn.disabled=false;btn.textContent=authMode==='login'?'登 录':'注 册';
+    const msgs={'auth/user-not-found':'用户不存在','auth/wrong-password':'密码错误','auth/email-already-in-use':'邮箱已被注册','auth/weak-password':'密码太简单（至少6位）','auth/invalid-email':'邮箱格式不正确','auth/invalid-credential':'邮箱或密码错误'};
+    showAuthMsg(msgs[e.code]||e.message,'err');
+  }
+}
+
+async function googleLogin(){
+  try{
+    const provider=new firebase.auth.GoogleAuthProvider();
+    const cred=await auth.signInWithPopup(provider);
+    await onLogin(cred.user);
+  }catch(e){showAuthMsg('Google 登录失败：'+e.message,'err')}
+}
+
+function showAuthMsg(msg,type){
+  document.getElementById('auth-msg').innerHTML=`<div class="msg-${type}">${msg}</div>`;
+}
+
+async function onLogin(user){
+  currentUser=user;
+  userDoc=await loadUserDoc(user.uid);
+  // save nickname from Google/displayName
+  if(user.displayName&&!userDoc.nickname){
+    userDoc.nickname=user.displayName;
+    await db.collection('users').doc(user.uid).update({nickname:user.displayName});
+  }
+  userState=await loadUserState(user.uid);
+  document.getElementById('auth-screen').style.display='none';
+  renderApp();
+}
+
+async function logout(){
+  await auth.signOut();
+  currentUser=null;userDoc=null;userState=null;
+  studyQueue=[];currentCard=null;isFlipped=false;activeTab='study';
+  document.getElementById('app-screen').style.display='none';
+  document.getElementById('auth-screen').style.display='flex';
+}
+
+/* ══════════════════════════════════════════════
+   MAIN APP
+══════════════════════════════════════════════ */
+function renderApp(){
+  const day=currentDay();
+  const today=todayStr();
+  const{pendingNew,pendingReview,newWords,reviewWords,sp}=getTodayTasks();
+  const allDone=pendingNew.length===0&&pendingReview.length===0;
+  const nick=userDoc.nickname||currentUser.displayName||currentUser.email.split('@')[0];
+
+  // topbar
+  document.getElementById('user-name').textContent=nick;
+  const av=document.getElementById('user-avatar');
+  av.textContent=initials(nick);
+  av.style.background=hashColor(currentUser.uid);
+  if(currentUser.photoURL){av.innerHTML=`<img src="${currentUser.photoURL}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;av.style.background='none'}
+
+  // banner
+  document.getElementById('banner-title').textContent=`第 ${Math.min(day,100)} 天 / 100天`;
+  document.getElementById('banner-date').textContent=`${today} · ${['周日','周一','周二','周三','周四','周五','周六'][new Date().getDay()]}`;
+  updateBannerPills();
+
+  document.getElementById('app-screen').style.display='block';
+  if(studyQueue.length===0&&(pendingNew.length+pendingReview.length)>0){
+    studyQueue=shuffle([...pendingNew.map(w=>({...w,type:'new'})),...pendingReview.map(w=>({...w,type:'review'}))]);
+    currentCard=studyQueue[0]||null;
+  }
+  renderStudyPanel();
+}
+
+function updateBannerPills(){
+  const{pendingNew,pendingReview,newWords,reviewWords,sp}=getTodayTasks();
+  const allDone=pendingNew.length===0&&pendingReview.length===0;
+  const pp=document.getElementById('banner-pills');
+  if(pp) pp.innerHTML=`
+    ${newWords.length>0?`<span class="pill p-new">新词 ${sp.newDone.length}/${newWords.length}</span>`:''}
+    ${reviewWords.length>0?`<span class="pill p-rev">复习 ${sp.reviewDone.length}/${reviewWords.length}</span>`:''}
+    ${allDone?`<span class="pill p-done">✓ 今日完成</span>`:''}
+  `;
+  const ab=document.getElementById('alert-bar');
+  if(ab){
+    const pending=pendingNew.length+pendingReview.length;
+    ab.className='alert-bar'+(pending>0?' show':'');
+    ab.innerHTML=`
+      ${pendingNew.length>0?`<span>📌 <b>${pendingNew.length}</b> 个新词未学习</span>`:''}
+      ${pendingReview.length>0?`<span>🔁 <b>${pendingReview.length}</b> 个词待复习</span>`:''}
+    `;
+  }
+}
+
+function switchTab(tab){
+  activeTab=tab;
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(el=>el.classList.remove('on'));
+  const tabs=['study','calendar','rank','schedule','words'];
+  document.querySelectorAll('.tab')[tabs.indexOf(tab)].classList.add('on');
+  document.getElementById('panel-'+tab).classList.add('on');
+  if(tab==='study') renderStudyPanel();
+  if(tab==='calendar') renderCalendarPanel();
+  if(tab==='rank') renderRankPanel();
+  if(tab==='schedule') renderSchedulePanel();
+  if(tab==='words') renderWordsPanel();
+}
+
+/* ── Study Panel ── */
+function renderStudyPanel(){
+  const el=document.getElementById('panel-study');if(!el)return;
+  const today=todayStr();
+  const{newWords,reviewWords,pendingNew,pendingReview,sp}=getTodayTasks();
+  const total=newWords.length+reviewWords.length;
+  const done=sp.newDone.length+sp.reviewDone.length;
+  const pct=total>0?Math.round(done/total*100):100;
+  const allDone=studyQueue.length===0&&pendingNew.length===0&&pendingReview.length===0;
+  const ci=userState.checkins[today];
+
+  el.innerHTML=`
+    <div class="prog-wrap">
+      <div class="prog-label"><span>今日进度</span><span>${done} / ${total} 词</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div>
+    </div>
+    <div class="fc-area">
+      <div class="fc-meta">
+        <span>${currentCard?`队列剩余 ${studyQueue.length} 张`:'—'}</span>
+        <span>${currentCard?(currentCard.type==='new'?'📌 新词':'🔁 复习'):'—'}</span>
+      </div>
+      ${allDone?`
+        <div class="empty-card">
+          <div class="ic">🎉</div>
+          <h3>今日任务全部完成！</h3>
+          <p>新学 ${sp.newDone.length} 词 · 复习 ${sp.reviewDone.length} 词</p>
+          ${!ci?.checked
+            ?`<button class="btn-checkin" onclick="doCheckin()">✓ 打今日卡</button>`
+            :`<p style="color:#166534;font-weight:500;margin-top:.5rem">✓ 今日已打卡</p>`}
+        </div>
+      `:currentCard?`
+        <div class="fc" onclick="flipCard()">
+          <div class="fc-inner${isFlipped?' flip':''}">
+            <div class="fc-face">
+              <span class="fc-tag">${currentCard.type==='new'?'新词':'复习'}</span>
+              <span class="fc-lbl">ENGLISH</span>
+              <div class="fc-word">${currentCard.w}</div>
+              <div class="fc-phon">${currentCard.p}</div>
+              <div class="fc-hint">点击翻转查看释义 →</div>
+            </div>
+            <div class="fc-face fc-back">
+              <span class="fc-tag">${currentCard.type==='new'?'新词':'复习'}</span>
+              <span class="fc-lbl">中文释义</span>
+              <div class="fc-mean">${currentCard.m}</div>
+              <div class="fc-en2">${currentCard.w}</div>
+            </div>
+          </div>
+        </div>
+        ${isFlipped?`<div class="rate-row">
+          <button class="btn-r b-hard" onclick="rateCard(0)">✕ 不认识<span class="b-sub">明天再练</span></button>
+          <button class="btn-r b-ok" onclick="rateCard(1)">△ 模糊<span class="b-sub">3天后</span></button>
+          <button class="btn-r b-good" onclick="rateCard(2)">○ 认识<span class="b-sub">7天后</span></button>
+          <button class="btn-r b-easy" onclick="rateCard(3)">★ 很熟<span class="b-sub">15天后</span></button>
+        </div>`:''}
+      `:`<div class="empty-card"><div class="ic">📭</div><h3>今日暂无任务</h3><p>等待明天的新词和复习任务</p></div>`}
+    </div>
+  `;
+}
+
+function flipCard(){isFlipped=!isFlipped;renderStudyPanel()}
+
+function rateCard(level){
+  if(!currentCard)return;
+  const today=todayStr();
+  if(!userState.sessionProgress[today])userState.sessionProgress[today]={newDone:[],reviewDone:[]};
+  if(currentCard.type==='new'){
+    if(!userState.wordStates[currentCard.idx])userState.wordStates[currentCard.idx]={};
+    userState.wordStates[currentCard.idx].learned=today;
+    userState.wordStates[currentCard.idx].ease=level;
+    userState.sessionProgress[today].newDone.push(currentCard.idx);
+  }else{
+    userState.sessionProgress[today].reviewDone.push(currentCard.doneKey);
+    if(userState.wordStates[currentCard.idx])userState.wordStates[currentCard.idx].ease=level;
+  }
+  saveState();
+  studyQueue.shift();
+  isFlipped=false;
+  currentCard=studyQueue[0]||null;
+  updateBannerPills();
+  renderStudyPanel();
+}
+
+async function doCheckin(){
+  const today=todayStr();
+  if(!userState.checkins[today])userState.checkins[today]={};
+  userState.checkins[today].checked=true;
+  userState.checkins[today].ts=Date.now();
+  await saveState();
+  renderStudyPanel();
+}
+
+/* ── Calendar Panel ── */
+function renderCalendarPanel(){
+  const el=document.getElementById('panel-calendar');if(!el)return;
+  const day=currentDay();
+  const mastered=Object.values(userState.wordStates).filter(ws=>ws.learned&&ws.ease>=2).length;
+  const streak=calcStreak();
+  const totalCheckins=Object.values(userState.checkins).filter(c=>c.checked).length;
+  el.innerHTML=`
+    <div class="legend">
+      <div class="leg-i"><div class="leg-d" style="background:#15803d"></div>全部完成</div>
+      <div class="leg-i"><div class="leg-d" style="background:#ca8a04"></div>部分完成</div>
+      <div class="leg-i"><div class="leg-d" style="background:#18181b"></div>仅打卡</div>
+    </div>
+    <div class="cal-hdr">
+      <div class="cal-nav"><button onclick="calPrev()">←</button></div>
+      <h3>${calYear}年${calMonth+1}月</h3>
+      <div class="cal-nav"><button onclick="calNext()">→</button></div>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="sg">
+      <div class="sc hi"><div class="lbl">当前第</div><div class="val">${Math.min(day,100)} 天</div></div>
+      <div class="sc"><div class="lbl">🔥 连续打卡</div><div class="val">${streak} 天</div></div>
+      <div class="sc"><div class="lbl">累计打卡</div><div class="val">${totalCheckins}</div></div>
+      <div class="sc"><div class="lbl">已掌握词汇</div><div class="val">${mastered}</div></div>
+    </div>
+    <div class="prog-wrap">
+      <div class="prog-label"><span>100天进度</span><span>第${Math.min(day,100)}/100天</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:${Math.round(Math.min(day,100))}%"></div></div>
+    </div>
+    <div class="prog-wrap">
+      <div class="prog-label"><span>词汇掌握率</span><span>${mastered}/${TOTAL} (${Math.round(mastered/TOTAL*100)}%)</span></div>
+      <div class="prog-track"><div class="prog-fill g" style="width:${Math.round(mastered/TOTAL*100)}%"></div></div>
+    </div>
+  `;
+  buildCalGrid();
+}
+function buildCalGrid(){
+  const grid=document.getElementById('cal-grid');if(!grid)return;
+  const today=todayStr();
+  grid.innerHTML='';
+  ['日','一','二','三','四','五','六'].forEach(d=>{const e=document.createElement('div');e.className='cal-lbl';e.textContent=d;grid.appendChild(e)});
+  const first=new Date(calYear,calMonth,1).getDay();
+  for(let i=0;i<first;i++){const e=document.createElement('div');e.className='cal-d';grid.appendChild(e)}
+  const dim=new Date(calYear,calMonth+1,0).getDate();
+  for(let d=1;d<=dim;d++){
+    const ds=`${calYear}-${p2(calMonth+1)}-${p2(d)}`;
+    const dayNum=daysBetween(userDoc.startDate,ds)+1;
+    const inRange=dayNum>=1&&dayNum<=100;
+    const isFuture=ds>today;
+    const isToday=ds===today;
+    const ci=userState.checkins[ds];
+    const sp=userState.sessionProgress[ds]||{newDone:[],reviewDone:[]};
+    const el=document.createElement('div');
+    el.className='cal-d';
+    if(isToday)el.classList.add('today');
+    if(inRange&&!isFuture){
+      const nw=getNewWords(dayNum);
+      const rv=getReviewWords(ds);
+      const total=nw.length+rv.length;
+      const done=sp.newDone.length+sp.reviewDone.length;
+      if(ci?.checked) el.classList.add(done>=total&&total>0?'full':done>0?'partial':'chk');
+      else if(total===0) el.classList.add('no-task');
+    } else if(isFuture) el.classList.add('future');
+    else if(!inRange) el.classList.add('other-month');
+    el.innerHTML=`<span class="cal-dnum">${d}</span>${inRange&&!isFuture?'<span class="cal-dot"></span>':''}`;
+    grid.appendChild(el);
+  }
+}
+function calPrev(){calMonth--;if(calMonth<0){calMonth=11;calYear--}renderCalendarPanel()}
+function calNext(){calMonth++;if(calMonth>11){calMonth=0;calYear++}renderCalendarPanel()}
+
+/* ── Rank Panel ── */
+async function renderRankPanel(){
+  const el=document.getElementById('panel-rank');if(!el)return;
+  el.innerHTML='<div style="text-align:center;padding:2.5rem;color:var(--muted);font-size:.8rem">加载排行榜中...</div>';
+  try{
+    const usersSnap=await db.collection('users').get();
+    const rows=[];
+    for(const doc of usersSnap.docs){
+      const u=doc.data();
+      const uid=doc.id;
+      const st=await (await db.collection('states').doc(uid).get()).data()||{wordStates:{},checkins:{},sessionProgress:{}};
+      const startDate=u.startDate||todayStr();
+      const day=daysBetween(startDate,todayStr())+1;
+      const mastered=Object.values(st.wordStates||{}).filter(ws=>ws.learned&&ws.ease>=2).length;
+      const checkins=Object.values(st.checkins||{}).filter(c=>c.checked).length;
+      let streak=0,d2=new Date(todayStr());
+      while(true){const s=`${d2.getFullYear()}-${p2(d2.getMonth()+1)}-${p2(d2.getDate())}`;if(st.checkins?.[s]?.checked){streak++;d2.setDate(d2.getDate()-1)}else break}
+      const today=todayStr();
+      const sp=st.sessionProgress?.[today]||{newDone:[],reviewDone:[]};
+      const nw=getNewWords(day);const rv=[];// simplified for rank
+      const todayDone=sp.newDone.length+sp.reviewDone.length;
+      const score=mastered*3+checkins*2+streak;
+      const nick=u.nickname||u.email?.split('@')[0]||'用户';
+      rows.push({uid,nick,mastered,checkins,streak,day,todayDone,score});
+    }
+    rows.sort((a,b)=>b.score-a.score);
+    const html=rows.map((u,i)=>{
+      const rank=i+1;
+      const medal=rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':rank;
+      const isMe=u.uid===currentUser.uid;
+      return `<div class="lb-row${isMe?' me':''}">
+        <div class="lb-rank">${medal}</div>
+        <div class="avatar" style="background:${hashColor(u.uid)};width:32px;height:32px;border-radius:50%;flex-shrink:0;font-size:.7rem">${initials(u.nick)}</div>
+        <div class="lb-info">
+          <div class="lb-name">${u.nick}${isMe?' <span style="font-size:.62rem;color:var(--muted)">(我)</span>':''}</div>
+          <div class="lb-sub">第${Math.min(u.day,100)}天 · 今日已学${u.todayDone}词</div>
+        </div>
+        <div class="lb-stats">
+          <div>📚 ${u.mastered}词</div>
+          <div style="font-size:.65rem;color:var(--muted)">🔥 ${u.streak}天</div>
+        </div>
+      </div>`;
+    }).join('');
+    el.innerHTML=`<p style="font-size:.7rem;color:var(--muted);margin-bottom:1rem">共 ${rows.length} 名学员 · 按掌握词数综合排名</p>${html||'<p style="color:var(--muted);text-align:center;padding:2rem">暂无数据</p>'}`;
+  }catch(e){el.innerHTML=`<p style="color:var(--red);padding:1rem">加载失败：${e.message}</p>`}
+}
+
+/* ── Schedule Panel ── */
+function renderSchedulePanel(){
+  const el=document.getElementById('panel-schedule');if(!el)return;
+  const today=todayStr();const day=currentDay();
+  let rows='';
+  for(let d=1;d<=100;d++){
+    const ds=addDays(userDoc.startDate,d-1);
+    const nw=getNewWords(d);const rv=getReviewWords(ds);
+    const sp=userState.sessionProgress[ds]||{newDone:[],reviewDone:[]};
+    const ci=userState.checkins[ds];
+    const total=nw.length+rv.length;const done=sp.newDone.length+sp.reviewDone.length;
+    const isToday=d===day;const isPast=ds<today;
+    let status='';
+    if(ci?.checked) status=`<span class="badge bd">✓ 打卡</span>`;
+    else if(isToday) status=`<span class="badge bn">今天</span>`;
+    else if(isPast&&total>0) status=done>=total?`<span class="badge bd">完成</span>`:`<span class="badge br">${done}/${total}</span>`;
+    else if(ds>today) status=`<span style="font-size:.6rem;color:var(--muted)">待学</span>`;
+    rows+=`<tr class="${isToday?'trow':''}"><td style="font-family:var(--mono);font-size:.68rem">Day ${d}</td><td style="font-size:.68rem">${ds}</td><td>${nw.length?`<span class="badge bn">+${nw.length}</span>`:'—'}</td><td>${rv.length?`<span class="badge br">${rv.length}</span>`:'—'}</td><td style="font-weight:500">${total||'—'}</td><td>${status}</td></tr>`;
+  }
+  el.innerHTML=`<p style="font-size:.7rem;color:var(--muted);margin-bottom:.85rem">前46天每天5个新词，之后进入纯复习阶段</p><div style="overflow-x:auto"><table class="sch-t"><thead><tr><th>天数</th><th>日期</th><th>新词</th><th>复习</th><th>合计</th><th>状态</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  setTimeout(()=>{const t=el.querySelector('.trow');if(t)t.scrollIntoView({behavior:'smooth',block:'center'})},100);
+}
+
+/* ── Words Panel ── */
+function renderWordsPanel(){
+  const el=document.getElementById('panel-words');if(!el)return;
+  const filters=[['all','全部'],['mastered','已掌握'],['learning','学习中'],['new','未学习']];
+  const btns=filters.map(([f,l])=>`<button class="btn-sm" style="${wordFilter===f?'background:var(--ink);color:#fff;border-color:var(--ink)':''}" onclick="setWF('${f}')">${l}</button>`).join('');
+  const items=WORDS.map((w,i)=>{
+    const ws=userState.wordStates[i];const isL=ws&&ws.learned;const isM=isL&&ws.ease>=2;
+    if(wordFilter==='mastered'&&!isM)return'';
+    if(wordFilter==='learning'&&(!isL||isM))return'';
+    if(wordFilter==='new'&&isL)return'';
+    return`<div class="wi ${isM?'mas':isL?'lrn':''}"><div class="en2">${w.w}</div><div class="zh2">${w.m}</div></div>`;
+  }).join('');
+  el.innerHTML=`<div style="display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap">${btns}</div><div class="wl">${items||'<p style="color:var(--muted);font-size:.78rem">暂无词汇</p>'}</div>`;
+}
+function setWF(f){wordFilter=f;renderWordsPanel()}
+
+/* ══════════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════════ */
+window.addEventListener('load',async()=>{
+  // Firebase config (已内置，无需手动配置)
+  const cfg = {
+    apiKey: "AIzaSyB1degi3DnpSSTCkywdeyDvkQuZPhM8ik8",
+    authDomain: "corevocab-dabca.firebaseapp.com",
+    projectId: "corevocab-dabca",
+    storageBucket: "corevocab-dabca.firebasestorage.app",
+    messagingSenderId: "279112112728",
+    appId: "1:279112112728:web:7a86c797e459c637e9c82d"
+  };
+  try{
+    initFirebase(cfg);
+    auth.onAuthStateChanged(async user=>{
+      if(user){
+        await onLogin(user);
+        hide('loading');
+      }else{
+        hide('loading');
+        renderAuth();
+      }
+    });
+  }catch(e){
+    hide('loading');
+    alert('Firebase 初始化失败：'+e.message);
+  }
+});
+</script>
+</body>
+</html>
